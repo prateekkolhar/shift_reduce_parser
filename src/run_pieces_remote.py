@@ -45,7 +45,7 @@ if False:
 if False:
     train_1000 = train[0:1000]
     print ""
-    beamed_model = m2.train_beamed_model(train_1000, feature_indexer, decision_state_cache, 1,3)
+    beamed_model = m2.train_beamed_model(train_1000, feature_indexer, decision_state_cache, 1,5)
     
     print "Parsing dev"
     
@@ -57,7 +57,7 @@ if False:
     dev_decoded = [greedy_model.parse(sentence) for sentence in dev]
     m2.print_evaluation(dev, dev_decoded)
 
-reload(m2)
+
 
 if True:
     beamed_model = m2.train_beamed_model(train, feature_indexer, decision_state_cache, 5,3)

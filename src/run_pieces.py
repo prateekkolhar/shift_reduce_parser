@@ -27,24 +27,34 @@ m2.print_evaluation(dev, dev_decoded)
 ############# smaller size train greedy train. beam parse
 
 train_1000 = train[0:1000]
-greedy_model = m2.train_greedy_model(train, 10, feature_indexer, label_indexer, decision_state_cache, feature_cache)
-trained_model = m2.BeamedModel(greedy_model.feature_indexer,greedy_model.feature_weights,3)
-print "Parsing dev"
-
-dev_decoded = [trained_model.parse(sentence) for sentence in [dev[1]]]
-m2.print_evaluation(dev, dev_decoded)
-
+greedy_model = m2.train_greedy_model(train_1000, 10, feature_indexer, label_indexer, decision_state_cache, feature_cache)
 
 dev_decoded = [greedy_model.parse(sentence) for sentence in dev]
 m2.print_evaluation(dev, dev_decoded)
 
+
+beamed_model = m2.BeamedModel(greedy_model.feature_indexer,greedy_model.feature_weights,3)
+print "Parsing dev"
+
+dev_decoded = [beamed_model.parse(sentence) for sentence in dev]
+m2.print_evaluation(dev, dev_decoded)
+
+
+
+
 ############ smaller size train beam train. beam parse
 train_1000 = train[0:1000]
-trained_model = m2.train_beamed_model(train_1000, feature_indexer, decision_state_cache, 10)
+print ""
+beamed_model = m2.train_beamed_model(train_1000, feature_indexer, decision_state_cache, 1,3)
 
 print "Parsing dev"
 
-dev_decoded = [trained_model.parse(sentence) for sentence in dev]
+dev_decoded = [beamed_model.parse(sentence) for sentence in dev]
+m2.print_evaluation(dev, dev_decoded)
+
+
+greedy_model = m2.GreedyModel(beamed_model.feature_indexer,beamed_model.feature_weights)
+dev_decoded = [greedy_model.parse(sentence) for sentence in dev]
 m2.print_evaluation(dev, dev_decoded)
 
 reload(m2)

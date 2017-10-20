@@ -486,6 +486,7 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
     
     
     for i in xrange(min(parser_state.stack_len()-1,2)):
+        
         stack_idx = parser_state.stack[1:][-1-i]
         
         for t in ["l","r"]:
