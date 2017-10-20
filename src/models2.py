@@ -124,10 +124,11 @@ class ParserState(object):
     # deps is a dictionary mapping *child* indices to *parent* indices
     # (this is the one-to-many map; parent-to-child doesn't work in map-like data structures
     # without having the values be lists)
-    def __init__(self, stack, buffer, deps):
+    def __init__(self, stack, buffer, deps, rev_deps):
         self.stack = stack
         self.buffer = buffer
         self.deps = deps
+        self.rev_deps = rev_deps
 
     def __repr__(self):
         return repr(self.stack) + " " + repr(self.buffer) + " " + repr(self.deps)
@@ -197,24 +198,42 @@ class ParserState(object):
     def left_arc(self):
         new_deps = dict(self.deps)
         new_deps.update({self.stack_two_back(): self.stack_head()})
+        
+        new_rev_deps = dict(self.rev_deps)
+        if not new_rev_deps.has_key(self.stack_head()):
+            new_rev_deps[self.stack_head()]={}
+            new_rev_deps[self.stack_head()]["r"]=[]
+            new_rev_deps[self.stack_head()]["l"]=[]
+        
+        new_rev_deps[self.stack_head()]["r"].append(self.stack_two_back())
+        
         new_stack = list(self.stack[0:-2])
         new_stack.append(self.stack_head())
-        return ParserState(new_stack, self.buffer, new_deps)
+        return ParserState(new_stack, self.buffer, new_deps, new_rev_deps)
 
     # Returns a new ParserState that is the result of applying right arc to the current state. May crash if the
     # preconditions for right arc aren't met.
     def right_arc(self):
         new_deps = dict(self.deps)
         new_deps.update({self.stack_head(): self.stack_two_back()})
+        
+        new_rev_deps = dict(self.rev_deps)
+        if not new_rev_deps.has_key(self.stack_two_back()):
+            new_rev_deps[self.stack_two_back()]={}
+            new_rev_deps[self.stack_two_back()]["r"]=[]
+            new_rev_deps[self.stack_two_back()]["l"]=[]
+        
+        new_rev_deps[self.stack_two_back()]["l"].append(self.stack_head())
+        
         new_stack = list(self.stack[0:-1])
-        return ParserState(new_stack, self.buffer, new_deps)
+        return ParserState(new_stack, self.buffer, new_deps, new_rev_deps)
 
     # Returns a new ParserState that is the result of applying shift to the current state. May crash if the
     # preconditions for right arc aren't met.
     def shift(self):
         new_stack = list(self.stack)
         new_stack.append(self.buffer_head())
-        return ParserState(new_stack, self.buffer[1:], self.deps)
+        return ParserState(new_stack, self.buffer[1:], self.deps, self.rev_deps)
 
     # Return the Dependency objects corresponding to the dependencies added so far to this ParserState
     def get_dep_objs(self, sent_len):
@@ -227,7 +246,7 @@ class ParserState(object):
 # Returns an initial ParserState for a sentence of the given length. Note that because the stack and buffer
 # are maintained as indices, knowing the words isn't necessary.
 def initial_parser_state(sent_len):
-    return ParserState([-1], range(0, sent_len), {})
+    return ParserState([-1], range(0, sent_len), {}, {})
 
 
 # Returns an indexer for the three actions so you can iterate over them easily.
@@ -291,7 +310,7 @@ def train_greedy_model(parsed_sentences, epoch_num, feature_indexer=-1, label_in
                 
                 for label_idx  in xrange(0,len(label_indexer)):
                     pred[label_idx] = wt[feature_cache[sentence_idx][state_idx][label_idx]].sum()
-                    
+#                 SVM changes
 #                 pred[label_indexer.get_index(decision_state_cache[sentence_idx][0][state_idx])]+=1
                 pred_label_idx = pred.argmax();
                 wt[feature_cache[sentence_idx][state_idx][pred_label_idx]] -= 1*lr 
@@ -306,23 +325,6 @@ def train_greedy_model(parsed_sentences, epoch_num, feature_indexer=-1, label_in
 
 
 # Returns a BeamedModel trained over the given treebank.
-# def compute_next_state(sentence, gold_action, prev_state, prev_score, prev_cum_f, prev_is_gold, c,feature_weights, action, feature_indexer, add_to_indexer=False):
-#     
-#     feature_vec = extract_features(feature_indexer,sentence, prev_state, action, add_to_indexer)
-#     
-#     new_state= prev_state.take_action(action);
-#     
-#     new_score = feature_weights[feature_vec].sum()+prev_score;
-#     
-#     new_cum_f = Counter()
-#     new_cum_f.add(prev_cum_f)
-#     new_cum_f.increment_all(feature_vec,1)
-#     
-#     new_is_gold = (gold_action==action) & prev_is_gold
-#     
-#     return (new_state,new_score,new_cum_f,  new_is_gold)
-
-
 def train_beamed_model(parsed_sentences, feature_indexer, gold_state_cache, epoch_num=10, beam_size=3):
 
     wt = np.random.rand(10000000)
@@ -421,12 +423,19 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
     sos_tok = Token("<s>", "<S>", "<S>")
     root_tok = Token("<root>", "<ROOT>", "<ROOT>")
     eos_tok = Token("</s>", "</S>", "</S>")
+    non_tok = Token("</none>", "</NONE>", "</NONE>")
+    
+    distance = np.inf
+
     if parser_state.stack_len() >= 1:
         head_idx = parser_state.stack_head()
         stack_head_tok = sentence.tokens[head_idx] if head_idx != -1 else root_tok
+       
         if parser_state.stack_len() >= 2:
             two_back_idx = parser_state.stack_two_back()
             stack_two_back_tok = sentence.tokens[two_back_idx] if two_back_idx != -1 else root_tok
+            distance = head_idx - two_back_idx
+                        
         else:
             stack_two_back_tok = sos_tok
     else:
@@ -434,6 +443,9 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
         stack_two_back_tok = sos_tok
     buffer_first_tok = sentence.tokens[parser_state.get_buffer_word_idx(0)] if parser_state.buffer_len() >= 1 else eos_tok
     buffer_second_tok = sentence.tokens[parser_state.get_buffer_word_idx(1)] if parser_state.buffer_len() >= 2 else eos_tok
+    
+     
+    
     # Shortcut for adding features
     def add_feat(feat):
         maybe_add_feature(feats, feat_indexer, add_to_indexer, feat)
@@ -460,6 +472,48 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
     add_feat(decision + ":S1S0PosWord=" + stack_two_back_tok.pos + "&" + stack_head_tok.word)
     add_feat(decision + ":S1S0B0Pos=" + stack_two_back_tok.pos + "&" + stack_head_tok.pos + "&" + buffer_first_tok.pos)
     add_feat(decision + ":S0B0B1Pos=" + stack_head_tok.pos + "&" + buffer_first_tok.pos + "&" + buffer_second_tok.pos)
+    
+    ##
+
+    
+    dep_f={}
+    for i in xrange(2):
+        for j in xrange(2):
+            for t in ["ml","mr"]:
+                dep_f["s"+str(i)+t+str(j)] = non_tok
+        for t in ["vl","vr"]:
+            dep_f["s"+str(i)+t]=0
+    
+    
+    for i in xrange(min(parser_state.stack_len()-1,2)):
+        stack_idx = parser_state.stack[1:][-1-i]
+        
+        for t in ["l","r"]:
+            if parser_state.rev_deps.has_key(stack_idx):
+                rd = parser_state.rev_deps[stack_idx][t]
+                dep_f["s"+str(i)+"v"+t]=len(rd)
+                for j in xrange(min(2,len(rd))):
+                    dep_f["s"+str(i)+"m"+t+str(j)]=sentence.tokens[rd[j]]
+    
+    stk = [stack_head_tok, stack_two_back_tok]
+    for i in xrange(2):
+        for j in xrange(2):
+            for t in ["l","r"]:
+                st = "s"+str(i)+"m"+t+str(j)
+                add_feat(decision + ":"+st+"Word="+dep_f[st].word)
+                add_feat(decision + ":"+st+"Pos="+dep_f[st].pos)
+        for t in ["l","r"]:
+            st = "s"+str(i)+"v"+t
+            add_feat(decision + ":"+st+
+                "WordNum="+stk[i].word+"&"+str(dep_f[st]))
+            add_feat(decision + ":"+st+
+                "PosNum="+stk[i].pos+"&"+str(dep_f[st]))
+        st = "s"+str(i)+"d"
+        add_feat(decision + ":"+st+
+                "WordDist="+stk[i].word+"&"+str(distance))
+        add_feat(decision + ":"+st+
+                "PosDist="+stk[i].word+"&"+str(distance))
+            
     return feats
 
 
