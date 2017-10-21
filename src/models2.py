@@ -260,7 +260,7 @@ def get_label_indexer():
 
 # Returns a GreedyModel trained over the given treebank.
 
-def generate_features(parsed_sentences, add_to_indexer, feature_indexer=-1):
+def generate_features(parsed_sentences, add_to_indexer, create_features=True, feature_indexer=-1 ):
     
     if feature_indexer==-1: feature_indexer = Indexer();
     label_indexer = get_label_indexer();
@@ -277,25 +277,26 @@ def generate_features(parsed_sentences, add_to_indexer, feature_indexer=-1):
     
     feature_cache = [[[[] for k in xrange(0, len(label_indexer))] for j in xrange(0, len(decision_state_cache[i][0]))] for i in xrange(0, len(parsed_sentences))]
     
-    if add_to_indexer: print "Train feature extraction"
-    else: print "Test feature extraction"
-    start = timeit.default_timer()
-    for sentence_idx in xrange(0, len(parsed_sentences)):
-        if sentence_idx%100 == 0: print str(sentence_idx)+"/"+ str(len(parsed_sentences))
-        for state_idx in xrange(0,len(decision_state_cache[sentence_idx][0])):
-            for label_idx in xrange(0,len(label_indexer)):
-                feature_cache[sentence_idx][state_idx][label_idx] = extract_features(
-                    feature_indexer,parsed_sentences[sentence_idx], decision_state_cache[sentence_idx][1][state_idx], label_indexer.get_object(label_idx), add_to_indexer)
-    stop = timeit.default_timer()
-    print "features extracted:" + str(stop-start)
+    if create_features:
+        if add_to_indexer: print "Train feature extraction"
+        else: print "Test feature extraction"
+        start = timeit.default_timer()
+        for sentence_idx in xrange(0, len(parsed_sentences)):
+            if sentence_idx%100 == 0: print str(sentence_idx)+"/"+ str(len(parsed_sentences))
+            for state_idx in xrange(0,len(decision_state_cache[sentence_idx][0])):
+                for label_idx in xrange(0,len(label_indexer)):
+                    feature_cache[sentence_idx][state_idx][label_idx] = extract_features(
+                        feature_indexer,parsed_sentences[sentence_idx], decision_state_cache[sentence_idx][1][state_idx], label_indexer.get_object(label_idx), add_to_indexer)
+        stop = timeit.default_timer()
+        print "features extracted:" + str(stop-start)
     return (feature_indexer, label_indexer, decision_state_cache, feature_cache)
 
 def train_greedy_model(parsed_sentences, epoch_num, feature_indexer=-1, label_indexer=-1, decision_state_cache=-1, feature_cache=-1 ):
     
     if feature_indexer==-1:
         (feature_indexer, label_indexer, decision_state_cache, feature_cache)= generate_features(parsed_sentences,True)
-    wt = np.random.rand(len(feature_indexer))
-    wt_a = np.random.rand(len(feature_indexer))
+    wt = np.ones(len(feature_indexer))
+    wt_a = np.ones(len(feature_indexer))
     c=1
     lr=1
     print "Train"
@@ -483,19 +484,19 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
                 dep_f["s"+str(i)+t+str(j)] = non_tok
         for t in ["vl","vr"]:
             dep_f["s"+str(i)+t]=0
-    
-    
+      
+      
     for i in xrange(min(parser_state.stack_len()-1,2)):
-        
+          
         stack_idx = parser_state.stack[1:][-1-i]
-        
+          
         for t in ["l","r"]:
             if parser_state.rev_deps.has_key(stack_idx):
                 rd = parser_state.rev_deps[stack_idx][t]
                 dep_f["s"+str(i)+"v"+t]=len(rd)
                 for j in xrange(min(2,len(rd))):
                     dep_f["s"+str(i)+"m"+t+str(j)]=sentence.tokens[rd[j]]
-    
+      
     stk = [stack_head_tok, stack_two_back_tok]
     for i in xrange(2):
         for j in xrange(2):
@@ -514,7 +515,7 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
                 "WordDist="+stk[i].word+"&"+str(distance))
         add_feat(decision + ":"+st+
                 "PosDist="+stk[i].word+"&"+str(distance))
-            
+               
     return feats
 
 

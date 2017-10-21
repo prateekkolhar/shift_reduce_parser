@@ -60,7 +60,7 @@ if False:
 
 
 if True:
-    beamed_model = m2.train_beamed_model(train, feature_indexer, decision_state_cache, 5,3)
+    beamed_model = m2.train_beamed_model(train, feature_indexer, decision_state_cache, 5,5)
     
     print "Parsing dev"
     
