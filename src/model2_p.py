@@ -205,7 +205,6 @@ class ParserState(object):
             new_rev_deps[self.stack_head()]["r"]=[]
             new_rev_deps[self.stack_head()]["l"]=[]
         
-        new_rev_deps[self.stack_head()]["r"]= list(new_rev_deps[self.stack_head()]["r"])
         new_rev_deps[self.stack_head()]["r"].append(self.stack_two_back())
         
         new_stack = list(self.stack[0:-2])
@@ -224,7 +223,6 @@ class ParserState(object):
             new_rev_deps[self.stack_two_back()]["r"]=[]
             new_rev_deps[self.stack_two_back()]["l"]=[]
         
-        new_rev_deps[self.stack_two_back()]["l"] = list(new_rev_deps[self.stack_two_back()]["l"])
         new_rev_deps[self.stack_two_back()]["l"].append(self.stack_head())
         
         new_stack = list(self.stack[0:-1])
@@ -330,8 +328,8 @@ def train_greedy_model(parsed_sentences, epoch_num, feature_indexer=-1, label_in
 # Returns a BeamedModel trained over the given treebank.
 def train_beamed_model(parsed_sentences, feature_indexer, gold_state_cache, epoch_num=10, beam_size=3, dev=-1, test=-1):
 
-    wt = np.random.rand(10000000)
-    wt_a = np.array(wt, copy=True)
+    wt = np.random.rand(100000000)
+    wt_a = np.random.rand(100000000)
     c=1
     
     start = timeit.default_timer()
@@ -415,8 +413,9 @@ def train_beamed_model(parsed_sentences, feature_indexer, gold_state_cache, epoc
         if(dev!=-1):
             bm = BeamedModel(feature_indexer, wt-wt_a/c,beam_size)
             dev_decoded = [bm.parse(sentence) for sentence in dev]
+            print "epochs:" +str(epochs)
             print_evaluation(dev, dev_decoded)
-        if(test!=-1):
+            
             test_decoded = [bm.parse(test_ex) for test_ex in test]
             print_output(test_decoded, "test"+str(epochs)+".conllx.out")
 
@@ -488,28 +487,29 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
 
     
     dep_f={}
-     
+    cum_f={}
+    
     for i in xrange(2):
         for j in xrange(2):
             for t in ["ml","mr"]:
                 dep_f["s"+str(i)+t+str(j)] = non_tok
         for t in ["vl","vr"]:
             dep_f["s"+str(i)+t]=0
-        
-        
+       
+       
     for i in xrange(min(parser_state.stack_len()-1,2)):
-            
+           
         stack_idx = parser_state.stack[1:][-1-i]
-            
+           
         for t in ["l","r"]:
             if parser_state.rev_deps.has_key(stack_idx):
                 rd = parser_state.rev_deps[stack_idx][t]
                 dep_f["s"+str(i)+"v"+t]=len(rd)
                 for j in xrange(min(2,len(rd))):
                     dep_f["s"+str(i)+"m"+t+str(j)]=sentence.tokens[rd[j]]
-        
+       
     stk = [stack_head_tok, stack_two_back_tok]
-     
+    
     for i in xrange(2):
         for j in xrange(2):
             for t in ["l","r"]:
@@ -527,9 +527,9 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
                 "WordDist="+stk[i].word+"&"+str(distance))
         add_feat(decision + ":"+st+
                 "PosDist="+stk[i].word+"&"+str(distance))
+    
+    
      
-     
-      
     add_feat(decision+":s0w-s1wd="+stk[0].word+"&"+stk[1].word+"&"+str(distance))
     add_feat(decision+":s0p-s1pd="+stk[0].pos+"&"+stk[1].pos+"&"+str(distance))
     add_feat(decision+":s0wp-s1wp="+stk[0].word+"&"+stk[0].pos+"&"+stk[1].word+"&"+stk[1].pos)
@@ -539,18 +539,18 @@ def extract_features(feat_indexer, sentence, parser_state, decision, add_to_inde
     add_feat(decision+":s0wp-s1p="+stk[0].word+"&"+stk[0].pos+"&"+stk[1].pos)
     add_feat(decision+":s0wp-s1wp="+stk[0].word+"&"+stk[0].pos+"&"+stk[1].word+"&"+stk[1].pos)
     add_feat(decision+":s0w-s1w="+stk[0].word+"&"+stk[1].word)
-      
+     
     add_feat(decision+":s0p-s0l0p-s1p="+stk[0].pos+"&"+dep_f["s0ml0"].pos+"&"+stk[1].pos)
     add_feat(decision+":s0p-s0r0p-s1p="+stk[0].pos+"&"+dep_f["s0mr0"].pos+"&"+stk[1].pos)
     add_feat(decision+":s0p-s1l0p-s1p="+stk[0].pos+"&"+dep_f["s1ml0"].pos+"&"+stk[1].pos)
     add_feat(decision+":s0p-s1r0p-s1p="+stk[0].pos+"&"+dep_f["s1mr0"].pos+"&"+stk[1].pos)
-     
+    
     add_feat(decision+":s0p-s0l0p-s0l1p="+stk[0].pos+"&"+dep_f["s0ml0"].pos+"&"+dep_f["s0ml1"].pos)
     add_feat(decision+":s0p-s0r0p-s0r1p="+stk[0].pos+"&"+dep_f["s0mr0"].pos+"&"+dep_f["s0mr1"].pos)
     add_feat(decision+":s1p-s1l0p-s1l1p="+stk[1].pos+"&"+dep_f["s1ml0"].pos+"&"+dep_f["s1ml1"].pos)
     add_feat(decision+":s1p-s1r0p-s1r1p="+stk[1].pos+"&"+dep_f["s1mr0"].pos+"&"+dep_f["s1mr1"].pos)
-     
-     
+    
+    
     return feats
 
 

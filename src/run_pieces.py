@@ -14,10 +14,11 @@ from random import shuffle
 train = m2.read_data("./data/train.conllx")
 shuffle(train)
 dev = m2.read_data("data/dev.conllx")
-(feature_indexer, label_indexer, decision_state_cache, feature_cache) = m2.generate_features(train, True, False)
+(feature_indexer, label_indexer, decision_state_cache, feature_cache) = m2.generate_features(train, True)
 
 ########### all train
-trained_model = m2.train_greedy_model(train, 10, feature_indexer, label_indexer, decision_state_cache, feature_cache)
+train_1000 = train[:1000]
+trained_model = m2.train_greedy_model(train_1000, 10, feature_indexer, label_indexer, decision_state_cache, feature_cache)
 print "Parsing dev"
 
 dev_decoded = [trained_model.parse(sentence) for sentence in dev]
@@ -45,17 +46,20 @@ m2.print_evaluation(dev, dev_decoded)
 ############ smaller size train beam train. beam parse
 train_1000 = train[0:1000]
 print ""
+test = m2.read_data("./data/test.conllx.blind")
+for i in xrange(6,10):
+    print "beam size:"+str(i)
+    beamed_model = m2.train_beamed_model(train_1000, feature_indexer, decision_state_cache, 10,i+1)
+    print "Parsing dev"
+    dev_decoded = [beamed_model.parse(sentence) for sentence in dev]
+    m2.print_evaluation(dev, dev_decoded)
+    greedy_model = m2.GreedyModel(beamed_model.feature_indexer,beamed_model.feature_weights)
+    dev_decoded = [greedy_model.parse(sentence) for sentence in dev]
+    m2.print_evaluation(dev, dev_decoded)
 
-i=4
-print "beam size:"+str(i)
-beamed_model = m2.train_beamed_model(train_1000, feature_indexer, decision_state_cache, 5,i+1)
-print "Parsing dev"
-dev_decoded = [beamed_model.parse(sentence) for sentence in dev]
-m2.print_evaluation(dev, dev_decoded)
-greedy_model = m2.GreedyModel(beamed_model.feature_indexer,beamed_model.feature_weights)
-dev_decoded = [greedy_model.parse(sentence) for sentence in dev]
-m2.print_evaluation(dev, dev_decoded)
 
+test = m2.read_data("./data/test.conllx.blind")
+test_decoded = [trained_model.parse(test_ex) for test_ex in test]
 
 
 
