@@ -205,6 +205,7 @@ class ParserState(object):
             new_rev_deps[self.stack_head()]["r"]=[]
             new_rev_deps[self.stack_head()]["l"]=[]
         
+        new_rev_deps[self.stack_head()] = dict(new_rev_deps[self.stack_head()])
         new_rev_deps[self.stack_head()]["r"]= list(new_rev_deps[self.stack_head()]["r"])
         new_rev_deps[self.stack_head()]["r"].append(self.stack_two_back())
         
@@ -224,6 +225,7 @@ class ParserState(object):
             new_rev_deps[self.stack_two_back()]["r"]=[]
             new_rev_deps[self.stack_two_back()]["l"]=[]
         
+        new_rev_deps[self.stack_two_back()] = dict(new_rev_deps[self.stack_two_back()])
         new_rev_deps[self.stack_two_back()]["l"] = list(new_rev_deps[self.stack_two_back()]["l"])
         new_rev_deps[self.stack_two_back()]["l"].append(self.stack_head())
         
